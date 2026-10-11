@@ -5,12 +5,9 @@ case class PingTrace() extends SystemUtility {
   val executable: String = "ping"
   val configSection: String = "ping trace"
   def parseForConsole(fullOutput: String): String = {
-    // Извлекаем статистику
     val stats = fullOutput.linesIterator
       .find(_.contains("packet loss"))
       .getOrElse("Нет статистики")
-
-    // Извлекаем среднее время
     val avgTime = fullOutput.linesIterator
       .find(_.contains("rtt"))
       .map(line =>

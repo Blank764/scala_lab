@@ -1,19 +1,15 @@
 <configuration>
-    <!-- Формат времени: yyyy-MM-dd HH:mm:ss.SSS (год-месяц-день часы:минуты:секунды.миллисекунды) -->
-    <!-- Если нужна точность до микросекунд, используй SSSSSS -->
     <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"/>
 
 
-    <!-- 2. Вывод в файл (с автоматическим созданием) -->
     <appender name="FILE" class="ch.qos.logback.core.FileAppender">
-        <file>diagnostic.log</file> <!-- Имя файла лога -->
-        <append>true</append> <!-- Дописывать в конец, а не перезаписывать -->
+        <file>diagnostic.log</file> 
+        <append>true</append> 
         <encoder>
             <pattern>${LOG_PATTERN}</pattern>
         </encoder>
     </appender>
 
-    <!-- Подключаем оба аппендера к корневому логгеру -->
     <root level="info">
         <appender-ref ref="FILE" />
     </root>

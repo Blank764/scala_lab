@@ -93,7 +93,6 @@ object Proper {
   }
 
   def parseTracerouteOutput(output: String, exitCode: Int): String = {
-    // Критические ошибки (код ≠ 0)
     if (exitCode != 0) {
       if (output.contains("name resolution") ||
         output.contains("Name or service not known") ||
@@ -108,19 +107,13 @@ object Proper {
       }
       return s"Неизвестная ошибка (код $exitCode): $output"
     }
-
-    // Анализируем успешный вывод (код = 0)
     val lines = output.split("\n").toList
-
-    // Считаем хопы и потери
     val lostHops = lines.count(_.trim.matches("""\d+\s+\*\s+\*\s+\*.*"""))
     val totalHops = lines.count(_.trim.matches("""\d+\s+.*"""))
 
     if (totalHops == 0) {
       return "Трассировка не дала результатов"
     }
-
-    // Проверяем последнюю строку — дошёл ли маршрут до цели
     val lastLine = lines.lastOption.getOrElse("")
     val reachedDestination = !lastLine.contains("* * *")
     path_to_node= 0
@@ -134,8 +127,6 @@ object Proper {
   }
 
   def parseDigOutput(output: String, exitCode: Int): String = {
-    // dig почти всегда возвращает 0, даже при ошибках
-    // Анализируем статус в выводе
 
     if (output.contains("connection timed out") ||
       output.contains("communications error")) {
@@ -159,7 +150,6 @@ object Proper {
     }
 
     if (output.contains("NOERROR")) {
-      // Проверяем, есть ли записи в ответе
       if (output.contains("ANSWER SECTION:")) {
         return "Домен найден, записи получены"
       } else {
@@ -179,7 +169,6 @@ object Proper {
   }
 
   def parseCurlOutput(output: String, exitCode: Int): String = {
-    // Если использовался флаг -f, curl вернёт код ≠ 0 при HTTP ошибках
     if (exitCode == 22) {
       return "HTTP ошибка (4xx или 5xx): ресурс недоступен"
     }
@@ -204,7 +193,6 @@ object Proper {
       return s"Неизвестная ошибка curl (код $exitCode): $output"
     }
 
-    // Если код 0, анализируем HTTP-статус в выводе (для -I или -v)
     if (output.contains("HTTP/1.1 200") || output.contains("HTTP/2 200")) {
       return "HTTP 200 OK: ресурс доступен"
     }
@@ -238,7 +226,6 @@ object Proper {
   }
 
   def parseMtrOutput(output: String, exitCode: Int): String = {
-    // 1. Обработка критических ошибок запуска (код ≠ 0)
     if (exitCode != 0) {
       path_to_node = exitCode
       if (output.contains("Cannot resolve") || output.contains("No such host")) {
@@ -250,18 +237,12 @@ object Proper {
       return s"Критическая ошибка mtr (код $exitCode): $output"
     }
 
-    // 2. Разбиваем вывод на строки, убираем пустые и лишние пробелы
     val lines = output.split("\n").map(_.trim).filter(_.nonEmpty).toList
 
     if (lines.isEmpty) {
       return "Вывод mtr пуст"
     }
-
-    // 3. В режиме --report последняя строка ВСЕГДА содержит данные о целевом хосте (последний хоп)
     val targetLine = lines.last
-
-    // 4. Ищем число, за которым следует знак '%' (например, "0.0%", "15.5%")
-    // Это первый числовой столбец в данных mtr (Loss%)
     val lossPattern = """(\d+\.?\d*)\s*%""".r
 
     lossPattern.findFirstMatchIn(targetLine) match {
@@ -279,7 +260,6 @@ object Proper {
         }
 
       case None =>
-        // Если регулярное выражение не сработало, проверяем на полную недоступность
         if (targetLine.contains("???")) {
           "Хосты не отвечают: маршрут не прослежен"
         } else {
@@ -289,7 +269,6 @@ object Proper {
   }
 
   def parseTracepathOutput(output: String, exitCode: Int): String = {
-    // tracepath может вернуть 1 при ошибках
     if (exitCode != 0) {
       path_to_node = exitCode
       if (output.contains("Name or service not known") ||
@@ -304,11 +283,7 @@ object Proper {
       }
       return s"Ошибка tracepath (код $exitCode): $output"
     }
-
-    // Анализируем вывод
     val lines = output.split("\n").toList
-
-    // Ищем строки с "no reply" — это потери
     val noReplyCount = lines.count(_.contains("no reply"))
     val totalHops = lines.count(_.trim.matches("""\d+:.*"""))
 
@@ -316,7 +291,6 @@ object Proper {
       return "Трассировка не дала результатов"
     }
     path_to_node = exitCode
-    // Проверяем последнюю строку
     val lastLine = lines.lastOption.getOrElse("")
     val reachedDestination = lastLine.contains("reached") ||
       (!lastLine.contains("no reply") && lastLine.contains(":"))
@@ -340,7 +314,6 @@ object Proper {
                  pingState: Int
                ): String = {
 
-      // Вспомогательные функции для читаемости кода
       def isOk(state: Int): Boolean = state == 0
 
       def isFailed(state: Int): Boolean = state == 1
@@ -349,24 +322,18 @@ object Proper {
 
       def isChecked(state: Int): Boolean = state != -1
 
-      // 1. Сетевой интерфейс не настроен (Самая базовая проверка)
       if (isFailed(interfaceState)) {
         return
           """Предполагаемая проблема: локальная сетевая конфигурация.
             |На активном интерфейсе не обнаружен IP-адрес или маршрут по умолчанию.
             |Рекомендация: Проверьте настройки сетевого адаптера или подключение кабеля/Wi-Fi.""".stripMargin
       }
-
-      // 2. Нестабильное соединение (Важно выявить рано, так как это влияет на все остальные тесты)
       if (isChecked(pingState) && isUnstable(pingState)) {
         return
           """Предполагаемая проблема: нестабильное сетевое соединение.
             |Превышен порог потерь пакетов или критическая задержка.
             |Рекомендация: Проверьте качество сигнала Wi-Fi, загрузку канала или обратитесь к провайдеру.""".stripMargin
       }
-
-      // 3. Недоступен локальный шлюз
-      // Интерфейс ОК, но пинг до шлюза (node_ip) не проходит
       if (isOk(interfaceState) && isFailed(nodeIpState)) {
         return
           """Предполагаемая проблема: недоступен локальный шлюз.
@@ -382,31 +349,21 @@ object Proper {
             |Локальный шлюз доступен, но внешние узлы, DNS и HTTP-проверки не проходят.
             |Возможные причины: проблемы у интернет-провайдера, блокировка на уровне провайдера, неоплаченный тариф.""".stripMargin
       }
-
-      // 5. Возможная проблема DNS
-      // Шлюз ОК, внешний IP (path_to_node) ОК, но DNS и Web (по имени) не работают
       if (isOk(nodeIpState) && isOk(pathToNodeState) && isFailed(dnsState) && isFailed(webResourceState)) {
         return
           """Предполагаемая проблема: сбой в работе DNS.
             |Сетевое подключение и доступ к внешним IP-адресам работают, но доменные имена не разрешаются.
             |Рекомендация: Попробуйте сменить DNS-серверы на публичные (например, 8.8.8.8 или 1.1.1.1).""".stripMargin
       }
-
-      // 6. Возможная проблема конкретного сайта
-      // Сеть ОК, DNS ОК, но конкретный web_resource не работает
       if (isOk(nodeIpState) && isOk(pathToNodeState) && isOk(dnsState) && isFailed(webResourceState)) {
         return
           """Предполагаемая проблема: недоступность конкретного веб-ресурса.
             |Общее сетевое подключение и разрешение имён работают корректно.
             |Возможные причины: сайт временно не работает, блокировка конкретного ресурса, проблемы на стороне сервера.""".stripMargin
       }
-
-      // 7. Успешное состояние (Все проверки пройдены)
       if (isOk(interfaceState) && isOk(nodeIpState) && isOk(pathToNodeState) && isOk(dnsState) && isOk(webResourceState) && isOk(pingState)) {
         return "Сетевое подключение работает корректно. Критических ошибок не обнаружено."
       }
-
-      // 8. Проблема не определена (Fallback)
       """Проблема не определена.
         |Результаты проверок противоречивы или недостаточны для точного заключения.
         |Рекомендуется изучить полные логи выполнения утилит (fullOutput) вручную.""".stripMargin

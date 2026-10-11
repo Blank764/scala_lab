@@ -9,20 +9,16 @@ case class Wget() extends SystemUtility {
   val defaultArgs: List[String] = List()
 
   def parseForConsole(fullOutput: String): String = {
-    // Этот метод не используется напрямую, так как мы переопределяем run
-    // Но должен быть реализован по контракту трейта
     "Wget проверка"
   }
 
   override def run(): List[UtilityResult] = {
-    // Получаем аргументы из INI файла
     val iniArgs: List[String] = Option(ini_reader.getAll(configSection, "arg"))
       .map(_.asScala.toList.map(_.toString))
       .getOrElse(List(""))
 
     logger.info(s"Утилита '$name'. Секция INI: [$configSection]. Найдено вариантов: ${iniArgs.size}")
 
-    // Обрабатываем каждый набор аргументов
     iniArgs.map { argString =>
       val argsList = argString.trim.split("\\s+").filter(_.nonEmpty).toList
       val command: Seq[String] = executable +: argsList
@@ -30,7 +26,6 @@ case class Wget() extends SystemUtility {
       logger.info(s"Выполняю: ${command.mkString(" ")}")
 
       try {
-        // Используем ! вместо !!, так как wget --spider не выводит ничего
         val exitCode = command.!
         val success = (exitCode == 0)
 

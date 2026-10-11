@@ -7,6 +7,52 @@ import scala.io.AnsiColor.*
 import scala.io.{Source, StdIn}
 import scala.util.{Try, Using, Success, Failure}
 
+trait MenuNode:
+  def show: String
+
+case class MenuLeaf(name: String, action: () => Unit) extends MenuNode:
+  override def show: String = name
+
+case class MenuContainer2(name: String, content: Seq[MenuNode]) extends MenuNode:
+  override def show: String = name
+
+
+def menuLoop(current: MenuContainer2, parents: List[MenuContainer2]): Unit =
+  val parentOpt = parents.headOption
+
+  val content = parentOpt match
+    case Some(p) => current.content.appended(p)
+    case None    => current.content
+
+  content
+    .zipWithIndex
+    .map(p => s"${p._2}. ${p._1.show}")
+    .foreach(println)
+
+  val choice = readCheckedInt()
+
+  if parentOpt.isDefined && choice == current.content.length then
+    menuLoop(parentOpt.get, parents.tail)
+  else if choice >= 0 && choice < current.content.length then
+    content(choice) match
+      case leaf: MenuLeaf =>
+        leaf.action()
+        menuLoop(current, parents)
+      case mc: MenuContainer2 =>
+        menuLoop(mc, current :: parents)
+  else
+    println("Неверный выбор, попробуйте снова")
+    menuLoop(current, parents)
+
+
+def readCheckedInt(): Int =
+  Try(StdIn.readLine().trim.toInt) match
+    case Failure(_) =>
+      println("Пожалуйста, введите число")
+      readCheckedInt()
+    case Success(value) =>
+      value
+
 def compare():Unit = {
   print("Введите UUID первой сессии: ")
   val first = StdIn.readLine()
@@ -53,19 +99,7 @@ def full_diagnostic(hand: AbstractHandler, input: List[List[String]]):Unit = {
   hand.handle(input)
 }
 
-def part_diagnostic(hand: AbstractHandler, input: List[List[String]]):Unit = {
-  println("частичная диагностика")
-  println("выберите желаемое: ")
-  println("1) проверка сетевого интерфейса ")
-  println("2) проверка доступность локального шлюза ")
-  println("3) доступность выбранного узла в интернете ")
-  println("4) проверка DNS")
-  println("5) проверка доступности web-ресурса ")
-  println("6) проверить маршрут до выбранного узла ")
-  println("7) проверить задержку и потери пакетов")
-  println(s"${RED}ПИСАТЬ СТРОГО ЧЕРЕЗ ПРОБЕЛ БЕЗ СТОРОННИХ СИМВОЛОВ!!!${RESET}")
-  print("Проверки: ")
-  val command = StdIn.readLine()
+def part_diagnostic(hand: AbstractHandler, input: List[List[String]], command: String):Unit = {3
   try{
     val selectedIds: Set[String] = command.split("\\s+").map(_.trim).toSet
     val filteredInput: List[List[String]] = input.filter { innerList =>
@@ -133,23 +167,31 @@ object GlobalConfig {
   val em = EmptyHandler().setNext(in)
 
   val chain = em
-  while (run){
-    println(s"действия: ")
-    println(s"1) полная диагностика")
-    println(s"2) частичная диагностика")
-    println(s"3) выход")
-    println(s"4) сравнение сессий")
-    println(s"5) отчет")
-    print("выберите желаемое: ")
-    val command = StdIn.readInt()
-    command match{
-      case 1 => full_diagnostic(chain,inp)
-      case 2 => part_diagnostic(chain,inp)
-      case 3 => run=false
-      case 4 => compare()
-      case 5 => Proper.PrintReport()
-      case _ => println("ошибка")
-    }
-  }
+  val ml1 = MenuLeaf(s" полная диагностика", ()=>full_diagnostic(chain,inp))
+  val ml2 = MenuLeaf(s" выход", ()=>sys.exit(0))
+  val ml3 = MenuLeaf(s" сравнение сессий", ()=>compare())
+  val ml4 = MenuLeaf(s" отчет", ()=>Proper.PrintReport())
+
+  val container = MenuContainer2(
+    "Главное меню",
+    Seq(
+      ml1, ml2, ml3, ml4,
+      MenuContainer2(
+        "частичная диагностика",
+        Seq(
+          MenuLeaf(" проверка сетевого интерфейса ", () => part_diagnostic(chain,inp, "1")),
+          MenuLeaf(" проверка доступность локального шлюза ", () => part_diagnostic(chain,inp, "2")),
+          MenuLeaf(" доступность выбранного узла в интернете ", () => part_diagnostic(chain,inp, "3")),
+          MenuLeaf(" проверка DNS", () => part_diagnostic(chain,inp, "4")),
+          MenuLeaf(" проверка доступности web-ресурса ", () => part_diagnostic(chain,inp, "5")),
+          MenuLeaf(" проверить маршрут до выбранного узла ", () => part_diagnostic(chain,inp, "6")),
+          MenuLeaf(" проверить задержку и потери пакетов", () => part_diagnostic(chain,inp, "7"))
+        )
+      )
+    )
+  )
+  Try(menuLoop(container, Nil)) match
+    case Failure(exception) => println("Something has failed successfully")
+    case Success(_) => println("Something has failed to fail")
 }
 

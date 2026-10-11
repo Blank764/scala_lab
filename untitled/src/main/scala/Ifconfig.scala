@@ -5,7 +5,6 @@ case class Ifconfig() extends SystemUtility {
   val executable: String = "ifconfig"
   val configSection: String = "ifconfig"
   def parseForConsole(fullOutput: String): String = {
-    // Извлекаем имена интерфейсов
     val interfaces = fullOutput.linesIterator
       .filter(line => !line.startsWith("\t") && line.matches("\\S+.*"))
       .map(_.split("\\s+").head)

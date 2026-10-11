@@ -5,7 +5,6 @@ case class IpRoute() extends SystemUtility {
   val executable: String = "ip"
   val configSection: String = "ip route"
   def parseForConsole(fullOutput: String): String = {
-    // Находим маршрут по умолчанию
     val defaultRoute = fullOutput.linesIterator
       .find(_.startsWith("default"))
       .map(line => 

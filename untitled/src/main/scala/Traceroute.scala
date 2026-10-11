@@ -5,12 +5,10 @@ case class Traceroute() extends SystemUtility {
   val executable: String = "traceroute"
   val configSection: String = "traceroute"
   def parseForConsole(fullOutput: String): String = {
-    // Считаем количество хопов
     val hops = fullOutput.linesIterator.count(line =>
       line.matches("^\\s*\\d+\\s+.*") && !line.contains("traceroute")
     )
 
-    // Проверяем, дошли ли до цели
     val reachedDestination = fullOutput.contains("8.8.8.8")
 
     if reachedDestination then

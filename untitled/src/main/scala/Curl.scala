@@ -6,7 +6,6 @@ case class Curl() extends SystemUtility {
   val configSection: String = "curl"
   
   def parseForConsole(fullOutput: String): String = {
-    // Извлекаем HTTP статус
     val status = fullOutput.linesIterator
       .find(_.startsWith("HTTP"))
       .map(_.split("\\s+").lift(1).getOrElse("?"))

@@ -5,7 +5,6 @@ case class Iperf3() extends SystemUtility {
   val executable: String = "iperf3"
   val configSection: String = "iperf3"
   def parseForConsole(fullOutput: String): String = {
-    // Извлекаем скорость
     val speed = fullOutput.linesIterator
       .find(_.contains("bits/sec"))
       .map(line =>

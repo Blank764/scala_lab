@@ -5,7 +5,6 @@ case class Mtr() extends SystemUtility {
   val executable: String = "mtr"
   val configSection: String = "mtr"
   def parseForConsole(fullOutput: String): String = {
-    // MTR --report уже выводит статистику
     val loss = fullOutput.linesIterator
       .find(_.contains("8.8.8.8"))
       .map(line =>
